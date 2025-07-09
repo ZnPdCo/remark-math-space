@@ -40,6 +40,7 @@ function isSpace(node) {
 
 function gap(options = {}) {
   const htmlTags = options.tags || []; // e.g. ['kbd', 'var']
+  const forceSpaceAround = options.forceSpaceAround || []; // e.g. ['+', '-']
 
   function visitor(node, index, parent, type = {before: true, after: true}) {
     let prevNode, nextNode, cur, offset = 0;
@@ -55,12 +56,12 @@ function gap(options = {}) {
     while (cur < parent.children.length && isSpace(parent.children[cur])) cur += 1;
     nextNode = cur < parent.children.length ? toString(parent.children[cur]) : nothing;
     
-    if (type.before && is_cn_en(prevNode.at(-1))) {
+    if (type.before && (is_cn_en(prevNode.at(-1)) || forceSpaceAround.includes(prevNode.at(-1)))) {
       parent.children.splice(index, 0, { type: 'text', value: ' ' });
       offset = 1;
     }
 
-    if (type.after && is_cn_en(nextNode[0])) {
+    if (type.after && (is_cn_en(nextNode[0]) || forceSpaceAround.includes(nextNode[0]))) {
       parent.children.splice(index + 1 + offset, 0, { type: 'text', value: ' ' });
       offset += 1;
     }

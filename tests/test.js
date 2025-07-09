@@ -20,7 +20,7 @@ test('main', (t) => {
     .use(math)
     .use(space)
     //.use(de)
-    .use(sp, { tags: ['kbd'] })
+    .use(sp, { tags: ['kbd'], forceSpaceAround: ['+'] })
     .process(in_1, function (err, res) {
       console.log('finished');
       t.is(String(res), String(out_1));
