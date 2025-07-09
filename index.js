@@ -23,14 +23,7 @@ function toString(node) {
 }
 
 function all(values) {
-  var result = [];
-  var index = -1;
-
-  while (++index < values.length) {
-    result[index] = toString(values[index]);
-  }
-
-  return result.join('');
+  return values.map(toString).join('');
 }
 
 function isSpace(node) {
@@ -38,49 +31,65 @@ function isSpace(node) {
   return s == ' ' || s == '';
 }
 
-function gap() {
-  function visitor(node, index, parent) {
-    let prevNode, nextNode;
+function gap(options = {}) {
+  const htmlTags = options.tags || []; // e.g. ['kbd', 'var']
+
+  function visitor(node, index, parent, type = {before: true, after: true}) {
+    let prevNode, nextNode, cur, offset = 0;
     const nothing = '';
 
-    // get prev none space node
-    let cur = index - 1;
-    while (cur >= 0 && isSpace(parent.children[cur])) cur -= 1;
-    if (cur == -1) {
-      prevNode = nothing;
-    } else {
-      prevNode = toString(parent.children[cur]);
-    }
-    // get next none space node
-    cur = index + 1;
-    let len = parent.children.length;
-    while (cur < len && isSpace(parent.children[cur])) cur += 1;
-    if (cur == len) {
-      nextNode = nothing;
-    } else {
-      nextNode = toString(parent.children[cur]);
+    // Look for previous non-space node
+    if (type.before) {
+      cur = index - 1;
+      while (cur >= 0 && isSpace(parent.children[cur])) cur -= 1;
+      prevNode = cur >= 0 ? toString(parent.children[cur]) : nothing;
+
+      if (is_cn_en(prevNode.at(-1))) {
+        parent.children.splice(index, 0, { type: 'text', value: ' ' });
+        offset = 1;
+      }
     }
 
-    let offset = 0;
-    if (is_cn_en(prevNode[prevNode.length - 1])) {
-      parent.children.splice(index, 0, { type: 'text', value: ' ' }); // insert space before this node
-      offset = 1;
+    // Look for next non-space node
+    if (type.after) {
+      cur = index + 1;
+      while (cur < parent.children.length && isSpace(parent.children[cur])) cur += 1;
+      nextNode = cur < parent.children.length ? toString(parent.children[cur]) : nothing;
+
+      if (is_cn_en(nextNode[0])) {
+        parent.children.splice(index + 1 + offset, 0, { type: 'text', value: ' ' });
+        offset += 1;
+      }
     }
-    if (is_cn_en(nextNode[0])) {
-      parent.children.splice(index + 1 + offset, 0, {
-        type: 'text',
-        value: ' ',
-      }); // insert space after current node
-      offset += 1;
-    }
+
     return [visit.SKIP, index + 1 + offset];
   }
 
   return function (tree) {
-    visit(tree, 'inlineCode', visitor);
-    visit(tree, 'inlineMath', visitor);
-    visit(tree, 'strong', visitor);
-    visit(tree, 'link', visitor);
+    // Built-in node types
+    const defaultNodeTypes = ['inlineCode', 'inlineMath', 'strong', 'link'];
+    for (const type of defaultNodeTypes) {
+      visit(tree, type, visitor);
+    }
+
+    // HTML inline tags as raw HTML nodes
+    if (htmlTags.length > 0) {
+      visit(tree, 'html', (node, index, parent) => {
+        const value = node.value.trim();
+
+        // Only match inline tags
+        const openTagPattern = new RegExp(
+          `^<(${htmlTags.join('|')})(\\s[^>]*)?>$`,
+          'i'
+        );
+        const closeTagPattern = new RegExp(
+          `^</(${htmlTags.join('|')})>$`,
+          'i'
+        );
+        if (openTagPattern.test(value)) return visitor(node, index, parent, {before: true, after: false});
+        if (closeTagPattern.test(value)) return visitor(node, index, parent, {before: false, after: true});
+      });
+    }
   };
 }
 

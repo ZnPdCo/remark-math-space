@@ -20,7 +20,7 @@ test('main', (t) => {
     .use(math)
     .use(space)
     //.use(de)
-    .use(sp)
+    .use(sp, { tags: ['kbd'] })
     .process(in_1, function (err, res) {
       console.log('finished');
       t.is(String(res), String(out_1));
