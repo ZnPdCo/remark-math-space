@@ -23,7 +23,14 @@ function toString(node) {
 }
 
 function all(values) {
-  return values.map(toString).join('');
+  var result = [];
+  var index = -1;
+
+  while (++index < values.length) {
+    result[index] = toString(values[index]);
+  }
+
+  return result.join('');
 }
 
 function isSpace(node) {
@@ -39,38 +46,33 @@ function gap(options = {}) {
     const nothing = '';
 
     // Look for previous non-space node
-    if (type.before) {
-      cur = index - 1;
-      while (cur >= 0 && isSpace(parent.children[cur])) cur -= 1;
-      prevNode = cur >= 0 ? toString(parent.children[cur]) : nothing;
-
-      if (is_cn_en(prevNode.at(-1))) {
-        parent.children.splice(index, 0, { type: 'text', value: ' ' });
-        offset = 1;
-      }
-    }
+    cur = index - 1;
+    while (cur >= 0 && isSpace(parent.children[cur])) cur -= 1;
+    prevNode = cur >= 0 ? toString(parent.children[cur]) : nothing;
 
     // Look for next non-space node
-    if (type.after) {
-      cur = index + 1;
-      while (cur < parent.children.length && isSpace(parent.children[cur])) cur += 1;
-      nextNode = cur < parent.children.length ? toString(parent.children[cur]) : nothing;
+    cur = index + 1;
+    while (cur < parent.children.length && isSpace(parent.children[cur])) cur += 1;
+    nextNode = cur < parent.children.length ? toString(parent.children[cur]) : nothing;
+    
+    if (type.before && is_cn_en(prevNode.at(-1))) {
+      parent.children.splice(index, 0, { type: 'text', value: ' ' });
+      offset = 1;
+    }
 
-      if (is_cn_en(nextNode[0])) {
-        parent.children.splice(index + 1 + offset, 0, { type: 'text', value: ' ' });
-        offset += 1;
-      }
+    if (type.after && is_cn_en(nextNode[0])) {
+      parent.children.splice(index + 1 + offset, 0, { type: 'text', value: ' ' });
+      offset += 1;
     }
 
     return [visit.SKIP, index + 1 + offset];
   }
 
   return function (tree) {
-    // Built-in node types
-    const defaultNodeTypes = ['inlineCode', 'inlineMath', 'strong', 'link'];
-    for (const type of defaultNodeTypes) {
-      visit(tree, type, visitor);
-    }
+    visit(tree, 'inlineCode', visitor);
+    visit(tree, 'inlineMath', visitor);
+    visit(tree, 'strong', visitor);
+    visit(tree, 'link', visitor);
 
     // HTML inline tags as raw HTML nodes
     if (htmlTags.length > 0) {
@@ -79,7 +81,7 @@ function gap(options = {}) {
 
         // Only match inline tags
         const openTagPattern = new RegExp(
-          `^<(${htmlTags.join('|')})(\\s[^>]*)?>$`,
+          `^<(${htmlTags.join('|')})>$`,
           'i'
         );
         const closeTagPattern = new RegExp(
